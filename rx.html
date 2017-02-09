@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<title>RxJS Experiments</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/rxjs/5.0.1/Rx.min.js"></script>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js'></script>
+<link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+<body>
+	
+	<div class="container">
+	<h3 id="title">RxJS Experiments</h3>
+		<span id="subtitle">Some results experimenting with the RxJS library</span>
+		<hr/>
+	<input type="text" name="input" id="input"></input>
+	<label for="input" style="float: left; padding-right: 10px;" id="bananas">Search Wikipedia</label>
+	
+	<p>
+		<ul id="results" class="list-group">
+		</ul>
+	</p>
+	</div>
+	
+</body>
+
+<footer>
+	<script>
+		//REQUIRES jQUERY VERSION 3 or HIGHER
+		
+		/* DOM Elements */
+		var $input = $('#input'),
+		$results = $('#results');
+
+		/* Only get the value of the input from each key up */
+		var keyups = Rx.Observable.fromEvent($input, 'keyup')
+			.map(e => e.target.value)
+			.filter(text => text.length > 0);
+
+		/* Now throttle/debounce the input for 600ms */
+		var throttled = keyups.throttleTime(600); //ms
+
+		/* Now get only distinct values, so we eliminate the arrows and other control characters */
+		var distinct = throttled.distinctUntilChanged();
+		
+		/* Perform AJAX promise*/
+		function searchWikipedia(term) {
+		
+			return $.ajax({
+				url: 'http://en.wikipedia.org/w/api.php',
+				dataType: 'jsonp',
+				data: {
+					action: 'opensearch',
+					format: 'json',
+					search: term
+				}
+			}).promise();
+
+		}
+		
+		w = window;
+		w.suggestions = distinct.switchMap(searchWikipedia);
+		
+		w.suggestions.subscribe(data => {
+			var res = data[1],
+			inf = data[2],
+			lnk = data[3];
+			
+			
+			console.log(data)
+			/* Do something with the data like binding */
+			$results.empty();
+			$.each(res, (_, value) => $(`
+				<li class="list-group-item">
+				<strong>${value}</strong>
+				<p>
+					${inf[_]}
+				</p>
+				<p>
+					<a href="${lnk[_]}" target="_blank">
+						<button class="btn btn-primary">Read on Wikipedia</button>
+					</a>
+				</p>
+				</li>
+			`).appendTo($results));
+		}, error => {
+			/* handle any errors */
+			$results.empty();
+			$('<li>Error: ' + error + '</li>').appendTo($results);
+		});
+		
+	</script>
+
+</footer>
+
+</html>
